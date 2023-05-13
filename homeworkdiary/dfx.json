@@ -1,0 +1,8 @@
+{
+    "canisters": {
+      "Homework": {
+        "main": "main.mo",
+        "type": "motoko"
+      }
+    }
+  }
