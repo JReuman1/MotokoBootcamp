@@ -1,4 +1,56 @@
-# Motoko Bootcamp 2023
+# Motoko Bootcamp 2023 English Version
+
+This repository contains the projects developed during the bootcamp. The projects include a calculator, a task diary (homework diary), a student wall, a digital coin (MotoCoin), and a task verifier (verifier).
+
+## Technologies Used
+
+- **Motoko**: All projects were written in the Motoko programming language, which is the main language for development on DFINITY's Internet Computer.
+
+- **DFINITY Internet Computer**: All projects run on the Internet Computer, a decentralized platform that allows software to run at Internet scale.
+
+- **Vessel**: Vessel is a package manager for Motoko, which we used to manage the projects' dependencies.
+
+- **DFX**: DFX is DFINITY's command line tool, used to compile and deploy the projects.
+
+## Deployment
+
+To deploy these projects, you will first need to install DFX if you haven't done so already. You can then clone this repository and deploy each project individually with the `dfx deploy` command.
+
+$ git clone https://github.com/JReuman1/MotokoBootcamp
+$ cd bootcamp-projects
+$ dfx deploy
+
+
+Remember that each project may have specific deployment requirements, so make sure to read each one's documentation.
+
+## Projects
+
+### Project 1: [Calculator](https://github.com/JReuman1/MotokoBootcamp/tree/main/calculator)
+
+A simple project that implements a basic calculator in Motoko.
+
+### Project 2: [HomeworkDiary](https://github.com/JReuman1/MotokoBootcamp/tree/main/homeworkdiary)
+
+A task diary that allows users to log and manage their tasks.
+
+### Project 3: [StudentWall](https://github.com/JReuman1/MotokoBootcamp/tree/main/studentwall)
+
+A social interaction platform for bootcamp students.
+
+### Project 4: [MotoCoin](https://github.com/JReuman1/MotokoBootcamp/tree/main/MotoCoin)
+
+A digital coin implemented in Motoko.
+
+### Project 5: [Verifier](https://github.com/JReuman1/MotokoBootcamp/tree/main/verifier)
+
+A task verification system that allows to verify the ownership of a canister and test its functionality.
+
+## Contributions
+
+We appreciate all contributions. If you find an issue or have a suggestion, feel free to open an issue or a pull request.
+
+
+# Motoko Bootcamp 2023 Spanish Version
 
 Este repositorio contiene los proyectos desarrollados durante el bootcamp. Los proyectos incluyen una calculadora, un diario de tareas (homework diary), un muro de estudiantes (student wall), una moneda digital (MotoCoin) y un verificador de tareas (verifier).
 
