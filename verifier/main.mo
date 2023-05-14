@@ -8,145 +8,173 @@ import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
 import Timer "mo:base/Timer";
-import Debug "mo:base/Debug";
 import Buffer "mo:base/Buffer";
-import Iter "mo:base/Iter";
-import IC "Ic";
-import HTTP "Http";
+
 import Type "Types";
-import Calculator "Calculator";
+import Ic "Ic";
 
 actor class Verifier() {
   type StudentProfile = Type.StudentProfile;
-  
 
-  stable var students : [(Principal, StudentProfile)] = [];
-  var studentsProfileStore = HashMap.fromIter<Principal, StudentProfile>(students.vals(), 0, Principal.equal, Principal.hash);
+  let studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(0, Principal.equal, Principal.hash);
 
-  // STEP 1 - BEGIN
-  public shared ({ caller }) func addMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
+  private func isRegistered(p : Principal) : Bool {
+    var xProfile : ?StudentProfile = studentProfileStore.get(p);
 
-    switch (Principal.isAnonymous(caller)) {
-      case (false) {
-        return #err("Your user is anonymous. You aren't allowed to create a profile here.");
+    switch (xProfile) {
+      case null { 
+        return false;
       };
-      case (true) {
-        studentsProfileStore.put(caller, profile);
-        return #ok;
-      };
-    };
 
+      case (?profile) {
+        return true
+      };
+    }
   };
 
-  public shared ({ caller }) func seeAProfile(p : Principal) : async Result.Result<StudentProfile, Text> {
-    switch (studentsProfileStore.get(p)) {
-      case (null) {
-        return #err("Invalid principal key. Check your spelling.");
-      };
-      case (?ok) {
-        return #ok(ok);
-      };
+  // STEP 1 - BEGIN
+
+  public shared ({ caller }) func addMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
+    if (Principal.isAnonymous(caller)) {
+      return #err "You must be Logged In"
     };
+
+    if (isRegistered(caller)) {
+      return #err ("You are already registered (" # Principal.toText(caller) # ") ")
+    };
+
+    studentProfileStore.put(caller, profile);
+    return #ok ();
+  };
+
+  public shared query ({ caller }) func seeAProfile(p : Principal) : async Result.Result<StudentProfile, Text> {
+    var xProfile : ?StudentProfile = studentProfileStore.get(p);
+
+    switch (xProfile) {
+      case null { 
+        return #err ("There is no profile registered with the received account");
+      };
+
+      case (?profile) {
+        return #ok profile
+      };
+    }
   };
 
   public shared ({ caller }) func updateMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
-    switch (studentsProfileStore.get(caller)) {
-      case (null) {
-        return #err("Didn't find such profile.");
-      };
-      case (?ok) {
-        let updatedProfile : StudentProfile = {
-          name = ok.name;
-          team = ok.team;
-          graduate = ok.graduate;
-        };
-        studentsProfileStore.put(caller, profile);
-        return #ok;
-      };
+    if (Principal.isAnonymous(caller)) {
+      return #err "You must be Logged In"
     };
+    
+    if (not isRegistered(caller)) {
+      return #err ("You are not registered");
+    };
+
+    ignore studentProfileStore.replace(caller, profile);
+
+    return #ok ();
   };
 
   public shared ({ caller }) func deleteMyProfile() : async Result.Result<(), Text> {
-    switch (studentsProfileStore.remove(caller)) {
-      case (null) {
-        return #err("Didn't find such profile.");
-      };
-      case (?ok) {
-        return #ok;
-      };
+    if (Principal.isAnonymous(caller)) {
+      return #err "You must be Logged In"
     };
+    
+    if (not isRegistered(caller)) {
+      return #err ("You are not registered");
+    };
+
+    studentProfileStore.delete(caller);
+
+    return #ok ();
   };
-  // STEP 1 - END
 
   // STEP 2 - BEGIN
-  public type CalculatorInterface = Type.CalculatorInterface;
   public type TestResult = Type.TestResult;
   public type TestError = Type.TestError;
 
   public func test(canisterId : Principal) : async TestResult {
-    let calculatorActor = await Calculator.Calculator();
-    //let day5Actor = await Verifier();
-    try {
-      let result1 = await calculatorActor.add(1);
-      if (result1 != 1) {
-        return #err(#UnexpectedValue("Expected 1, got " # Int.toText(result1)));
-      };
-      let result2 = await calculatorActor.add(2);
-      if (result2 != 3) {
-        return #err(#UnexpectedValue("Expected 3, got " # Int.toText(result2)));
-      };
-      return #ok ();
-    } catch (error : Error) {
-    // Si ocurre algún error, devolver el mensaje de error como UnexpectedError
-      return #err(#UnexpectedError(Error.message(error)));
-    };
+    let calculatorInterface = actor(Principal.toText(canisterId)) : actor {
+      reset : shared () -> async Int;
+      add : shared (x : Nat) -> async Int;
+      sub : shared (x : Nat) -> async Int;
     };
 
-  // STEP - 2 END
+    try {
+      let x1 : Int = await calculatorInterface.reset();
+      if (x1 != 0) {
+        return #err(#UnexpectedValue("After a reset, counter should be 0!"));
+      };
+
+      let x2 : Int = await calculatorInterface.add(2);
+      if (x2 != 2) {
+        return #err(#UnexpectedValue("After 0 + 2, counter should be 2!"));
+      };
+
+      let x3 : Int = await calculatorInterface.sub(2);
+      if (x3 != 0) {
+        return #err(#UnexpectedValue("After 2 - 2, counter should be 0!"));
+      };
+
+      return #ok ();
+    } catch (e) {
+      return #err(#UnexpectedError("Something went wrong!"));
+    } 
+  };
+
 
   // STEP 3 - BEGIN
-  // NOTE: Not possible to develop locally,
-  // as actor "aaaa-aa" (aka the IC itself, exposed as an interface) does not exist locally
-  public func verifyOwnership(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
-    return #err("not implemented");
+  public func verifyOwnership(canisterId : Principal, p : Principal) : async Bool {
+    try {
+      let controllers = await Ic.getCanisterControllers(canisterId);
+
+      var isOwner : ?Principal = Array.find<Principal>(controllers, func prin = prin == p);
+      
+      if (isOwner != null) {
+        return true;
+      };
+
+      return false;
+    } catch (e) {
+      return false;
+    }
   };
-  // STEP 3 - END
 
   // STEP 4 - BEGIN
-  public shared ({ caller }) func verifyWork(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
-    return #err("not implemented");
-  };
-  // STEP 4 - END
+  public shared ({ caller }) func verifyWork(canisterId : Principal, p : Principal) : async Result.Result<(), Text> {
+    try {
+      let isApproved = await test(canisterId); 
 
-  // STEP 5 - BEGIN
-  public type HttpRequest = HTTP.HttpRequest;
-  public type HttpResponse = HTTP.HttpResponse;
+      if (isApproved != #ok) {
+        return #err("The current work has no passed the tests");
+      };
 
-  // NOTE: Not possible to develop locally,
-  // as Timer is not running on a local replica
-  public func activateGraduation() : async () {
-    return ();
-  };
+      let isOwner = await verifyOwnership(canisterId, p); 
 
-  public func deactivateGraduation() : async () {
-    return ();
-  };
+      if (not isOwner) {
+        return #err ("The received work owner does not match with the received principal");
+      };
 
-  public query func http_request(request : HttpRequest) : async HttpResponse {
-    return ({
-      status_code = 200;
-      headers = [];
-      body = Text.encodeUtf8("");
-      streaming_strategy = null;
-    });
-  };
-  // STEP 5 - END
+      var xProfile : ?StudentProfile = studentProfileStore.get(p);
 
-  system func preupgrade() {
-    students := Iter.toArray(studentsProfileStore.entries());
-  };
+      switch (xProfile) {
+        case null { 
+          return #err("The received principal does not belongs to a registered student");
+        };
 
-  system func postupgrade() {
-    students := [];
+        case (?profile) {
+          var updatedStudent = {
+            name = profile.name;
+            graduate = true;
+            team = profile.team;
+          };
+
+          ignore studentProfileStore.replace(p, updatedStudent);
+          return #ok ();      
+        }
+      };
+    } catch(e) {
+      return #err("Cannot verify the project");
+    }
   };
 };
